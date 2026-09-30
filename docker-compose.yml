@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: trail-timing-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-timer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-timer}
+      POSTGRES_DB: ${POSTGRES_DB:-timing}
+      TZ: UTC
+    ports:
+      # 仅为本地调试暴露；生产可删除此映射
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-timer} -d ${POSTGRES_DB:-timing}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build: .
+    container_name: trail-timing-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-timer}:${POSTGRES_PASSWORD:-timer}@db:5432/${POSTGRES_DB:-timing}
+      RACE_ID: ${RACE_ID:-1}
+      PORT: "8080"
+    ports:
+      - "${API_PORT:-8080}:8080"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
